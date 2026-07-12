@@ -69,12 +69,21 @@ shoppers-own [
 
 
 ;; =========================================================
-;; UI PARAMETERS: PHYSICAL / BEHAVIORAL MEANING
+;; UI PARAMETERS: SEMANTIC / BEHAVIORAL MEANING
 ;; =========================================================
+;;
+;; Вхідні параметри утворюють чотири конфігураційні групи.
+;; Така класифікація відокремлює технічний масштаб симуляції,
+;; розклад бонусної програми, політику винагороди та поведінкові
+;; припущення конкретної моделі агентів.
+;;
+;; SIMULATION CONFIGURATION
 ;;
 ;; number-of-shoppers
 ;;   Розмір модельованої популяції. Збільшення значення зменшує
 ;;   випадкові коливання агрегованих показників, але збільшує час роботи.
+;;
+;; REWARD SCHEDULE CONFIGURATION
 ;;
 ;; reward-cycles
 ;;   Кількість бонусних кампаній.
@@ -91,17 +100,25 @@ shoppers-own [
 ;;   Між циклами це пауза, а після останнього циклу — фінальний період
 ;;   спостереження за стійкістю поведінки.
 ;;
-;; low-reward-salience-salience / high-reward-salience-salience
+;; REWARD POLICY CONFIGURATION
+;;
+;; low-reward-salience / high-reward-salience
 ;;   Психологічна значущість (reward salience), а не номінальна сума
 ;;   винагороди. Значення визначає, наскільки зовнішній стимул помітний
-;;   у процесі прийняття рішення.
+;;   у процесі прийняття рішення. Параметри задають політику винагороди
+;;   для двох treatment-груп.
+;;
+;; BEHAVIORAL MODEL CONFIGURATION
 ;;
 ;; habit-learning-rate
 ;;   Швидкість формування звички після повторення цільової поведінки.
+;;   Значення 0 означає відсутність навчання, а більші значення —
+;;   швидше наближення сили звички до верхньої межі 1.
 ;;
 ;; crowding-out-rate
 ;;   Швидкість ерозії внутрішньої мотивації під впливом надмірно
-;;   значущої зовнішньої винагороди.
+;;   значущої зовнішньої винагороди. Значення 0 вимикає механізм
+;;   crowding-out, а більші значення посилюють втрату мотивації.
 
 
 ;; =========================================================
@@ -171,12 +188,67 @@ end
 to setup
   clear-all
 
+  ;; Перевірка контракту вхідної конфігурації виконується до створення
+  ;; агентів. Некоректний сценарій завершується з пояснювальною помилкою.
+  validate-configuration
+
   initialize-system-state
   setup-shoppers
 
   reset-ticks
   update-simulation-state
   update-visualization
+end
+
+
+;; Перевіряє семантичні обмеження UI та BehaviourSpace-параметрів.
+;; Валідація є частиною зовнішнього контракту симуляційного ядра:
+;; модель або запускається з коректною конфігурацією, або одразу
+;; повідомляє, яке саме обмеження порушено.
+to validate-configuration
+  if number-of-shoppers < 3 [
+    error "number-of-shoppers must be at least 3"
+  ]
+
+  if number-of-shoppers != floor number-of-shoppers [
+    error "number-of-shoppers must be an integer"
+  ]
+
+  if reward-cycles < 0 [
+    error "reward-cycles cannot be negative"
+  ]
+
+  if reward-cycles != floor reward-cycles [
+    error "reward-cycles must be an integer"
+  ]
+
+  if reward-cycles > 0 and reward-duration <= 0 [
+    error "reward-duration must be positive when reward-cycles > 0"
+  ]
+
+  if withdrawal-duration <= 0 [
+    error "withdrawal-duration must be positive"
+  ]
+
+  if low-reward-salience < 0 or low-reward-salience > 1 [
+    error "low-reward-salience must be in the range [0, 1]"
+  ]
+
+  if high-reward-salience < 0 or high-reward-salience > 1 [
+    error "high-reward-salience must be in the range [0, 1]"
+  ]
+
+  if low-reward-salience > high-reward-salience [
+    error "low-reward-salience cannot exceed high-reward-salience"
+  ]
+
+  if habit-learning-rate < 0 or habit-learning-rate > 1 [
+    error "habit-learning-rate must be in the range [0, 1]"
+  ]
+
+  if crowding-out-rate < 0 or crowding-out-rate > 1 [
+    error "crowding-out-rate must be in the range [0, 1]"
+  ]
 end
 
 
@@ -393,7 +465,7 @@ to-report reward-contribution
 end
 
 ;; Єдина точка визначення поточної політики винагороди для агента.
-;; Інші модулі не звертаються до low-reward-salience-salience/high-reward-salience-salience напряму.
+;; Інші модулі не звертаються до low-reward-salience/high-reward-salience напряму.
 to-report active-reward-salience
   if not reward-active? [ report 0 ]
 
@@ -812,7 +884,7 @@ end
     <slider x="245" step="100" y="35" max="3000" display="number-of-shoppers" height="33" min="300" direction="Horizontal" default="1000.0" variable="number-of-shoppers" width="175" sizeVersion="0"></slider>
     <slider x="165" step="5" y="135" max="200" display="reward-duration" height="33" min="10" direction="Horizontal" default="60.0" variable="reward-duration" width="140" sizeVersion="0"></slider>
     <slider x="310" step="5" y="135" max="200" display="withdrawal-duration" height="33" min="10" direction="Horizontal" default="60.0" variable="withdrawal-duration" width="160" sizeVersion="0"></slider>
-    <slider x="30" step="1" y="135" max="6" display="reward-cycles" height="33" min="0" direction="Horizontal" default="2.0" variable="reward-cycles" width="125" sizeVersion="0"></slider>
+    <slider x="30" step="1" y="135" max="6" display="reward-cycles" height="33" min="0" direction="Horizontal" default="1.0" variable="reward-cycles" width="125" sizeVersion="0"></slider>
     <slider x="30" step="0.05" y="185" max="1" display="low-reward-salience" height="33" min="0" direction="Horizontal" default="0.15" variable="low-reward-salience" width="175" sizeVersion="0"></slider>
     <slider x="30" step="0.005" y="270" max="0.10" display="habit-learning-rate" height="33" min="0" direction="Horizontal" default="0.005" variable="habit-learning-rate" width="175" sizeVersion="0"></slider>
     <monitor x="30" precision="17" y="340" height="60" fontSize="11" width="100">current-phase</monitor>
@@ -908,6 +980,21 @@ from being confused with long-term post-program persistence.
 
 The BehaviourSpace experiment designs were not changed. Their parameter names
 were migrated only to keep them compatible with the renamed UI controls.
+
+## Configuration contract
+
+Вхідні параметри поділено на чотири групи:
+
+- **Simulation configuration:** `number-of-shoppers`;
+- **Reward schedule configuration:** `reward-cycles`, `reward-duration`, `withdrawal-duration`;
+- **Reward policy configuration:** `low-reward-salience`, `high-reward-salience`;
+- **Behavioral model configuration:** `habit-learning-rate`, `crowding-out-rate`.
+
+Процедура `validate-configuration` перевіряє типи, діапазони та взаємні обмеження параметрів перед створенням агентів. Некоректна конфігурація завершується пояснювальною помилкою.
+
+## Regression test
+
+BehaviourSpace-експеримент `regression-test` використовує фіксовану конфігурацію і `random-seed 12345`. Він призначений для поведінкової регресійної перевірки після рефакторингу: за незмінних формул і версії NetLogo вихідні метрики мають відтворюватися точно.
 </info>
   <turtleShapes>
     <shape name="default" rotatable="true" editableColorIndex="0">
@@ -1835,6 +1922,47 @@ were migrated only to keep them compatible with the renamed UI controls.
         </enumeratedValueSet>
         <enumeratedValueSet variable="low-reward-salience">
           <value value="0.3"></value>
+        </enumeratedValueSet>
+      </constants>
+    </experiment>
+    <experiment name="regression-test" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="false">
+      <setup>random-seed 12345
+setup</setup>
+      <go>go</go>
+      <exitCondition><![CDATA[ticks >= experiment-end]]></exitCondition>
+      <metrics>
+        <metric>high-reward-crowding-out-effect</metric>
+        <metric>low-reward-persistence-effect</metric>
+        <metric>final-withdrawal-choice-rate "control"</metric>
+        <metric>final-withdrawal-choice-rate "low-salience"</metric>
+        <metric>final-withdrawal-choice-rate "high-salience"</metric>
+        <metric>mean-intrinsic-motivation "high-salience"</metric>
+        <metric>mean-habit "high-salience"</metric>
+      </metrics>
+      <constants>
+        <enumeratedValueSet variable="number-of-shoppers">
+          <value value="900"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="reward-cycles">
+          <value value="1"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="reward-duration">
+          <value value="60"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="withdrawal-duration">
+          <value value="60"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="low-reward-salience">
+          <value value="0.3"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="high-reward-salience">
+          <value value="0.9"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="habit-learning-rate">
+          <value value="0.02"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="crowding-out-rate">
+          <value value="0.02"></value>
         </enumeratedValueSet>
       </constants>
     </experiment>
