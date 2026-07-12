@@ -16,6 +16,13 @@ globals [
   ;; Номер поточного бонусного циклу.
   ;; 0 означає baseline або сценарій без бонусної програми.
   current-cycle
+
+  ;; Кількість уже виконаних ticks кожного типу фази.
+  ;; Вони є спільними для всієї популяції, тому немає потреби
+  ;; зберігати однакові opportunity-лічильники в кожному агенті.
+  baseline-ticks-completed
+  reward-ticks-completed
+  withdrawal-ticks-completed
 ]
 
 
@@ -42,15 +49,10 @@ shoppers-own [
   ;; true — агент обрав цільовий сталий/здоровий товар.
   chose-target?
 
-  ;; Лічильники потрібні для обчислення частки цільових виборів.
-  ;; У repeated-сценаріях reward і withdrawal накопичуються за всі цикли.
-  baseline-opportunities
+  ;; Кількість цільових виборів у фазах. У repeated-сценаріях
+  ;; reward і withdrawal агрегуються за всі відповідні цикли.
   baseline-target-choices
-
-  reward-opportunities
   reward-target-choices
-
-  withdrawal-opportunities
   withdrawal-target-choices
 ]
 
@@ -163,6 +165,10 @@ end
 ;; crowding-out-rate
 ;;   Швидкість ерозії intrinsic motivation, коли salience винагороди
 ;;   перевищує salience-threshold.
+;;
+;; salience
+;;   Значущість (помінтність) нагороди.
+;;   Наскільки стимул є помітним, значущим або таким, що привертає увагу людини під час прийняття рішення.
 
 
 ;; =========================================================
@@ -171,6 +177,10 @@ end
 
 to setup
   clear-all
+
+  set baseline-ticks-completed 0
+  set reward-ticks-completed 0
+  set withdrawal-ticks-completed 0
 
   setup-shoppers
 
@@ -207,13 +217,8 @@ to initialize-shopper
 
   set chose-target? false
 
-  set baseline-opportunities 0
   set baseline-target-choices 0
-
-  set reward-opportunities 0
   set reward-target-choices 0
-
-  set withdrawal-opportunities 0
   set withdrawal-target-choices 0
 end
 
@@ -315,6 +320,7 @@ to go
     shopper-step
   ]
 
+  record-phase-tick
   update-visualization
   tick
 end
@@ -453,27 +459,37 @@ end
 ;; =========================================================
 
 to record-choice
-  ;; Лічильники reward/withdrawal агрегують усі відповідні фази
-  ;; у repeated-сценарії. Це зберігає сумісність існуючих метрик.
+  ;; Кожен shopper робить один вибір за tick. Тому на рівні агента
+  ;; достатньо накопичувати лише кількість успішних цільових виборів.
+  if not chose-target? [ stop ]
+
   if current-phase = "baseline" [
-    set baseline-opportunities baseline-opportunities + 1
-    if chose-target? [
-      set baseline-target-choices baseline-target-choices + 1
-    ]
+    set baseline-target-choices baseline-target-choices + 1
   ]
 
   if current-phase = "reward" [
-    set reward-opportunities reward-opportunities + 1
-    if chose-target? [
-      set reward-target-choices reward-target-choices + 1
-    ]
+    set reward-target-choices reward-target-choices + 1
   ]
 
   if current-phase = "withdrawal" [
-    set withdrawal-opportunities withdrawal-opportunities + 1
-    if chose-target? [
-      set withdrawal-target-choices withdrawal-target-choices + 1
-    ]
+    set withdrawal-target-choices withdrawal-target-choices + 1
+  ]
+end
+
+
+;; Знаменник choice-rate однаковий для всіх агентів: кожен агент
+;; має рівно одну можливість вибору на кожному виконаному tick.
+to record-phase-tick
+  if current-phase = "baseline" [
+    set baseline-ticks-completed baseline-ticks-completed + 1
+  ]
+
+  if current-phase = "reward" [
+    set reward-ticks-completed reward-ticks-completed + 1
+  ]
+
+  if current-phase = "withdrawal" [
+    set withdrawal-ticks-completed withdrawal-ticks-completed + 1
   ]
 end
 
@@ -518,32 +534,32 @@ end
 ;; =========================================================
 
 ;; Частка цільових виборів заданої групи у заданому типі фази.
-;; Для repeated-сценарію reward/withdrawal — агреговані за всі цикли.
+;; Знаменник = кількість агентів у групі × кількість виконаних ticks фази.
+;; Для repeated-сценарію reward/withdrawal агрегуються за всі цикли.
 to-report choice-rate [group-name phase-name]
   let selected-shoppers shoppers with [
     treatment-group = group-name
   ]
 
-  if not any? selected-shoppers [
-    report 0
-  ]
+  let group-size count selected-shoppers
+  if group-size = 0 [ report 0 ]
 
   if phase-name = "baseline" [
     report safe-rate
       (sum [baseline-target-choices] of selected-shoppers)
-      (sum [baseline-opportunities] of selected-shoppers)
+      (group-size * baseline-ticks-completed)
   ]
 
   if phase-name = "reward" [
     report safe-rate
       (sum [reward-target-choices] of selected-shoppers)
-      (sum [reward-opportunities] of selected-shoppers)
+      (group-size * reward-ticks-completed)
   ]
 
   if phase-name = "withdrawal" [
     report safe-rate
       (sum [withdrawal-target-choices] of selected-shoppers)
-      (sum [withdrawal-opportunities] of selected-shoppers)
+      (group-size * withdrawal-ticks-completed)
   ]
 
   report 0
@@ -625,7 +641,6 @@ to-report low-reward-retention-ratio
 end
 
 
-
 ;; =========================================================
 ;; ДОПОМІЖНІ REPORTERS
 ;; =========================================================
@@ -658,10 +673,13 @@ to-report bounded-random-normal
 end
 ]]></code>
   <widgets>
-    <view x="460" wrappingAllowedX="true" y="20" frameRate="30.0" minPycor="-16" height="539" showTickCounter="true" patchSize="16.21212121212121" fontSize="10" wrappingAllowedY="true" width="539" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
+    <view x="415" wrappingAllowedX="true" y="15" frameRate="30.0" minPycor="-16" height="569" showTickCounter="true" patchSize="17.12121212121212" fontSize="10" wrappingAllowedY="true" width="569" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
     <button x="100" y="30" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55">go</button>
     <slider x="30" step="5" y="135" max="200" display="reward-duration" height="33" min="10" direction="Horizontal" default="60.0" variable="reward-duration" width="175" sizeVersion="0"></slider>
-    <slider x="120" step="100" y="90" max="3000" display="number-of-shoppers" height="33" min="300" direction="Horizontal" default="1000.0" variable="number-of-shoppers" width="175" sizeVersion="0"></slider>
+    <monitor x="255" precision="3" y="550" height="60" fontSize="11" display="High Salience" width="100" sizeVersion="0">choice-rate "high-salience" "withdrawal"</monitor>
+    <monitor x="145" precision="3" y="550" height="60" fontSize="11" display="Low Salience" width="100" sizeVersion="0">choice-rate "low-salience" "withdrawal"</monitor>
+    <monitor x="30" precision="3" y="550" height="60" fontSize="11" display="Control" width="105" sizeVersion="0">choice-rate "control" "withdrawal"</monitor>
+    <note x="120" y="520" backgroundDark="0" fontSize="12" width="175" markdown="false" height="30" textColorDark="-1" textColorLight="-16777216" backgroundLight="0">Sustainable Choice Rate</note>
     <plot x="1010" autoPlotX="true" yMax="1.0" autoPlotY="true" y="5" xMin="0.0" height="220" legend="true" xMax="0.0" yMin="0.0" width="390" xAxis="Baseline  █ Reward  █████ Withdrawal ███" display="Target choice rate">
       <setup></setup>
       <update></update>
@@ -735,20 +753,17 @@ end
       </pen>
     </plot>
     <slider x="215" step="5" y="135" max="200" display="withdrawal-duration" height="33" min="10" direction="Horizontal" default="60.0" variable="withdrawal-duration" width="175" sizeVersion="0"></slider>
-    <slider x="215" step="1" y="260" max="6" display="reward-cycles" height="33" min="0" direction="Horizontal" default="1.0" variable="reward-cycles" width="175" sizeVersion="0"></slider>
     <slider x="30" step="0.05" y="180" max="1" display="low-reward" height="33" min="0" direction="Horizontal" default="0.15" variable="low-reward" width="175" sizeVersion="0"></slider>
     <slider x="215" step="0.05" y="180" max="1" display="high-reward" height="33" min="0" direction="Horizontal" default="0.9" variable="high-reward" width="175" sizeVersion="0"></slider>
     <slider x="30" step="0.005" y="220" max="0.10" display="habit-learning-rate" height="33" min="0" direction="Horizontal" default="0.005" variable="habit-learning-rate" width="175" sizeVersion="0"></slider>
     <slider x="215" step="0.005" y="220" max="0.10" display="crowding-out-rate" height="33" min="0" direction="Horizontal" default="0.02" variable="crowding-out-rate" width="175" sizeVersion="0"></slider>
     <button x="30" y="30" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55">setup</button>
-    <monitor x="30" precision="17" y="325" height="60" fontSize="11" width="100">current-phase</monitor>
-    <monitor x="30" precision="3" y="415" height="60" fontSize="11" width="205">high-reward-crowding-out-effect</monitor>
-    <monitor x="240" precision="3" y="415" height="60" fontSize="11" width="205">low-reward-persistence-effect</monitor>
-    <monitor x="235" precision="0" y="320" height="60" fontSize="11" display="current-cycle" width="95" sizeVersion="0">current-cycle</monitor>
-    <note x="140" y="515" backgroundDark="0" fontSize="12" width="175" markdown="false" height="30" textColorDark="-1" textColorLight="-16777216" backgroundLight="0">Sustainable Choice Rate</note>
-    <monitor x="275" precision="3" y="545" height="60" fontSize="11" display="High Salience" width="100" sizeVersion="0">choice-rate "high-salience" "withdrawal"</monitor>
-    <monitor x="165" precision="3" y="545" height="60" fontSize="11" display="Low Salience" width="100" sizeVersion="0">choice-rate "low-salience" "withdrawal"</monitor>
-    <monitor x="50" precision="3" y="545" height="60" fontSize="11" display="Control" width="105" sizeVersion="0">choice-rate "control" "withdrawal"</monitor>
+    <slider x="30" step="100" y="90" max="3000" display="number-of-shoppers" height="33" min="300" direction="Horizontal" default="1000.0" variable="number-of-shoppers" width="175" sizeVersion="0"></slider>
+    <slider x="215" step="1" y="90" max="6" display="reward-cycles" height="33" min="0" direction="Horizontal" default="4.0" variable="reward-cycles" width="175" sizeVersion="0"></slider>
+    <monitor x="30" precision="3" y="365" height="60" fontSize="11" width="205">high-reward-crowding-out-effect</monitor>
+    <monitor x="30" precision="3" y="435" height="60" fontSize="11" width="205">low-reward-persistence-effect</monitor>
+    <monitor x="30" precision="17" y="280" height="60" fontSize="11" width="100" sizeVersion="0">current-phase</monitor>
+    <monitor x="215" precision="0" y="280" height="60" fontSize="11" width="96" display="current-cycle">current-cycle</monitor>
   </widgets>
   <info>## ЩО МОДЕЛЮЄ ЦЯ МОДЕЛЬ?
 
@@ -795,7 +810,12 @@ end
 
 ## ЕКСПЕРИМЕНТИ
 
-Існуючі BehaviourSpace-експерименти у файлі не змінювалися. За замовчуванням `reward-cycles = 1`, тому стара одноразова схема залишається відтворюваною.</info>
+Існуючі BehaviourSpace-експерименти у файлі не змінювалися. За замовчуванням `reward-cycles = 1`, тому стара одноразова схема залишається відтворюваною.
+
+## Структурний рефакторинг
+
+У цій версії opportunity-лічильники прибрано зі стану кожного покупця. Оскільки кожен агент робить рівно один вибір за tick, кількість можливостей обчислюється як добуток кількості агентів у групі на кількість виконаних ticks відповідної фази. Це не змінює математичний зміст метрик, але робить стан агента та процедуру збору статистики простішими. Невикористовуваний reporter `persistence-ratio` видалено; для аналізу збережено конкретні reporters `high-reward-retention-ratio` і `low-reward-retention-ratio`.
+</info>
   <turtleShapes>
     <shape name="default" rotatable="true" editableColorIndex="0">
       <polygon color="-1920102913" filled="true" marked="true">
