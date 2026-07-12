@@ -3,54 +3,61 @@
   <code><![CDATA[breed [shoppers shopper]
 
 ;; =========================================================
-;; ДИНАМІЧНИЙ СТАН МОДЕЛІ
+;; MODEL DECLARATIONS
 ;; =========================================================
+;;
+;; Модель розділена на незалежні логічні модулі:
+;; 1) Simulation Controller — керує послідовністю виконання;
+;; 2) Reward Schedule Module — визначає активність бонусної програми;
+;; 3) Shopper Decision Module — обчислює імовірність вибору;
+;; 4) Behavioral State Module — оновлює звичку та мотивацію;
+;; 5) Metrics Module — накопичує й повертає результати;
+;; 6) Visualization Module — відображає стан агентів.
+;;
+;; Така структура дозволяє замінювати або додавати поведінкові
+;; механізми без переписування основного циклу симуляції.
 
 globals [
-  ;; Поточна фаза експерименту:
-  ;; "baseline"   — спостереження без бонусів до початку кампаній;
+  ;; Поточний режим програми лояльності:
+  ;; "baseline"   — початкове спостереження без бонусів;
   ;; "reward"     — бонусна програма активна;
-  ;; "withdrawal" — бонуси тимчасово або остаточно вимкнені.
+  ;; "withdrawal" — бонусна програма призупинена або завершена.
   current-phase
 
   ;; Номер поточного бонусного циклу.
   ;; 0 означає baseline або сценарій без бонусної програми.
   current-cycle
 
-  ;; Кількість уже виконаних ticks кожного типу фази.
-  ;; Вони є спільними для всієї популяції, тому немає потреби
-  ;; зберігати однакові opportunity-лічильники в кожному агенті.
+  ;; Кількість виконаних ticks кожного типу фази.
+  ;; Ці лічильники є глобальними, оскільки кожний shopper має рівно
+  ;; одну можливість вибору на кожному tick.
   baseline-ticks-completed
   reward-ticks-completed
   withdrawal-ticks-completed
 ]
 
 
-;; =========================================================
-;; СТАН ПОКУПЦЯ
-;; =========================================================
-
 shoppers-own [
-  ;; Експериментальна група агента:
+  ;; Експериментальна група:
   ;; "control", "low-salience" або "high-salience".
   treatment-group
 
   ;; Внутрішня мотивація [0; 1].
-  ;; Відображає внутрішню цінність сталого/здорового вибору для покупця,
-  ;; незалежно від наявності зовнішньої винагороди.
+  ;; Відображає внутрішню цінність цільової поведінки для покупця,
+  ;; незалежно від зовнішньої винагороди.
   intrinsic-motivation
 
   ;; Сила звички [0; 1].
-  ;; Відображає, наскільки цільовий вибір став автоматичним унаслідок
-  ;; попередніх повторень.
+  ;; Відображає автоматизованість цільової поведінки, накопичену
+  ;; внаслідок попередніх повторень.
   habit
 
-  ;; Результат поточного вибору.
-  ;; true — агент обрав цільовий сталий/здоровий товар.
+  ;; Результат вибору на поточному tick.
+  ;; true — цільовий сталий/здоровий варіант обрано.
   chose-target?
 
-  ;; Кількість цільових виборів у фазах. У repeated-сценаріях
-  ;; reward і withdrawal агрегуються за всі відповідні цикли.
+  ;; Кількість цільових виборів у кожному типі фази.
+  ;; У repeated-сценаріях reward і withdrawal агрегуються за всі цикли.
   baseline-target-choices
   reward-target-choices
   withdrawal-target-choices
@@ -58,117 +65,99 @@ shoppers-own [
 
 
 ;; =========================================================
-;; ФІКСОВАНІ ПРИПУЩЕННЯ МОДЕЛІ
+;; UI PARAMETERS: PHYSICAL / BEHAVIORAL MEANING
 ;; =========================================================
 ;;
-;; Ці reporters виконують роль іменованих констант. Вони не є станом
-;; моделі та не змінюються під час симуляції. Така форма робить формули
-;; читабельними, але не перевантажує globals внутрішніми змінними.
+;; number-of-shoppers
+;;   Розмір модельованої популяції. Збільшення значення зменшує
+;;   випадкові коливання агрегованих показників, але збільшує час роботи.
+;;
+;; reward-cycles
+;;   Кількість бонусних кампаній.
+;;   0 — бонусна програма не запускається;
+;;   1 — одна кампанія;
+;;   >1 — повторні кампанії з паузами між ними.
+;;
+;; reward-duration
+;;   Тривалість активного бонусного періоду в одному циклі, у ticks.
+;;   Один tick інтерпретується як одна можливість здійснити вибір.
+;;
+;; withdrawal-duration
+;;   Тривалість періоду без бонусів після кожної кампанії, у ticks.
+;;   Між циклами це пауза, а після останнього циклу — фінальний період
+;;   спостереження за стійкістю поведінки.
+;;
+;; low-reward / high-reward
+;;   Психологічна значущість (reward salience), а не номінальна сума
+;;   винагороди. Значення визначає, наскільки зовнішній стимул помітний
+;;   у процесі прийняття рішення.
+;;
+;; habit-learning-rate
+;;   Швидкість формування звички після повторення цільової поведінки.
+;;
+;; crowding-out-rate
+;;   Швидкість ерозії внутрішньої мотивації під впливом надмірно
+;;   значущої зовнішньої винагороди.
 
-;; Тривалість початкового спостереження без бонусів, у ticks.
+
+;; =========================================================
+;; MODEL CONSTANTS
+;; =========================================================
+;; Іменовані reporters нижче є незмінними припущеннями конкретної
+;; реалізації моделі. Вони не є динамічним станом і не задаються в UI.
+
 to-report baseline-duration
   report 30
 end
 
-;; Початковий середній рівень внутрішньої мотивації у популяції.
 to-report initial-intrinsic-mean
   report 0.50
 end
 
-;; Стандартне відхилення початкової внутрішньої мотивації.
 to-report initial-intrinsic-sd
   report 0.15
 end
 
-;; Початковий середній рівень сформованої звички.
 to-report initial-habit-mean
   report 0.20
 end
 
-;; Стандартне відхилення початкової сили звички.
 to-report initial-habit-sd
   report 0.10
 end
 
-;; Вага внутрішньої мотивації у функції корисності цільового вибору.
 to-report intrinsic-choice-weight
   report 3
 end
 
-;; Вага звички у функції корисності цільового вибору.
 to-report habit-choice-weight
   report 1.5
 end
 
-;; Вага зовнішньої винагороди у функції корисності цільового вибору.
 to-report reward-choice-weight
   report 2
 end
 
-;; Відносна "вартість" або бар'єр цільового вибору.
-;; Це може інтерпретуватися як вища ціна, менша зручність або інше
-;; зусилля, необхідне для сталого/здорового вибору.
+;; Бар'єр цільового вибору: може означати вищу ціну, меншу зручність,
+;; додаткові витрати часу або інше зусилля.
 to-report target-choice-cost
   report 1.5
 end
 
-;; Поріг психологічної помітності винагороди.
-;; Нижче порога винагорода трактується як підтримувальна;
-;; вище порога — як контролююча, що може витісняти мотивацію.
+;; Межа між підтримувальною та контролюючою винагородою.
 to-report salience-threshold
   report 0.60
 end
 
-;; Швидкість природного послаблення звички, якщо цільовий вибір
-;; не повторився у поточному tick.
+;; Природне послаблення звички, якщо поведінка не повторилася.
 to-report habit-decay-rate
   report 0.01
 end
 
-;; Невелика фіксована швидкість підсилення intrinsic motivation
-;; для підтримувальної low-salience винагороди.
+;; Швидкість підсилення внутрішньої мотивації підтримувальною винагородою.
 to-report intrinsic-reinforcement-rate
   report 0.005
 end
-
-
-;; =========================================================
-;; ФІЗИЧНИЙ / ПОВЕДІНКОВИЙ ЗМІСТ UI-ПАРАМЕТРІВ
-;; =========================================================
-;;
-;; number-of-shoppers
-;;   Розмір модельованої популяції покупців.
-;;
-;; reward-duration
-;;   Кількість послідовних ticks, протягом яких бонуси активні
-;;   в кожному бонусному циклі.
-;;
-;; withdrawal-duration
-;;   Кількість ticks без бонусів після кожного reward-періоду.
-;;   Для repeated-сценарію це пауза між кампаніями, а після останнього
-;;   циклу — фінальний період спостереження за стійкістю поведінки.
-;;
-;; reward-cycles
-;;   Кількість повторень послідовності reward -> withdrawal.
-;;   0 — бонусна програма не застосовується;
-;;   1 — одна бонусна кампанія;
-;;   >1 — кілька бонусних кампаній із паузами між ними.
-;;
-;; low-reward / high-reward
-;;   Психологічна salience винагороди, а не грошова сума напряму.
-;;   Чим вище значення, тим помітнішою і сильнішою є зовнішня причина
-;;   зробити цільовий вибір.
-;;
-;; habit-learning-rate
-;;   Швидкість перетворення повторюваної цільової поведінки на звичку.
-;;
-;; crowding-out-rate
-;;   Швидкість ерозії intrinsic motivation, коли salience винагороди
-;;   перевищує salience-threshold.
-;;
-;; salience
-;;   Значущість (помінтність) нагороди.
-;;   Наскільки стимул є помітним, значущим або таким, що привертає увагу людини під час прийняття рішення.
 
 
 ;; =========================================================
@@ -178,45 +167,43 @@ end
 to setup
   clear-all
 
-  set baseline-ticks-completed 0
-  set reward-ticks-completed 0
-  set withdrawal-ticks-completed 0
-
+  initialize-system-state
   setup-shoppers
 
   reset-ticks
-  update-experiment-state
+  update-simulation-state
   update-visualization
+end
+
+
+to initialize-system-state
+  set baseline-ticks-completed 0
+  set reward-ticks-completed 0
+  set withdrawal-ticks-completed 0
 end
 
 
 to setup-shoppers
   create-shoppers number-of-shoppers [
-    initialize-shopper
+    initialize-shopper-state
     assign-treatment-group
   ]
 end
 
 
-to initialize-shopper
+to initialize-shopper-state
   set shape "person"
   set size 0.7
 
-  ;; Гетерогенність популяції задається обрізаним нормальним розподілом.
+  ;; Обрізані нормальні розподіли створюють гетерогенну популяцію,
+  ;; зберігаючи значення психологічних станів у діапазоні [0; 1].
   set intrinsic-motivation bounded-random-normal
-    initial-intrinsic-mean
-    initial-intrinsic-sd
-    0
-    1
+    initial-intrinsic-mean initial-intrinsic-sd 0 1
 
   set habit bounded-random-normal
-    initial-habit-mean
-    initial-habit-sd
-    0
-    1
+    initial-habit-mean initial-habit-sd 0 1
 
   set chose-target? false
-
   set baseline-target-choices 0
   set reward-target-choices 0
   set withdrawal-target-choices 0
@@ -224,8 +211,7 @@ end
 
 
 to assign-treatment-group
-  ;; Детермінований рівномірний розподіл мінімізує випадкову різницю
-  ;; у розмірах трьох експериментальних груп.
+  ;; Детермінований розподіл забезпечує майже однаковий розмір груп.
   if who mod 3 = 0 [
     set treatment-group "control"
     set color (lime - 3)
@@ -244,13 +230,43 @@ end
 
 
 ;; =========================================================
-;; ЧАСОВА СТРУКТУРА ЕКСПЕРИМЕНТУ
+;; SIMULATION CONTROLLER
 ;; =========================================================
+;; Верхньорівневий алгоритм не містить поведінкових формул.
+;; Він лише координує виклик незалежних модулів.
 
-;; Загальна тривалість симуляції.
-;; Кожен reward-цикл складається з активного бонусного періоду
-;; та наступного withdrawal-періоду. Тому останній цикл автоматично
-;; містить фінальний період спостереження після скасування бонусів.
+to go
+  if simulation-finished? [ stop ]
+
+  update-simulation-state
+
+  ask shoppers [
+    perform-shopper-step
+  ]
+
+  record-system-state
+  update-visualization
+  tick
+end
+
+
+to-report simulation-finished?
+  report ticks >= experiment-end
+end
+
+
+to update-simulation-state
+  set current-phase phase-at ticks
+  set current-cycle cycle-at ticks
+end
+
+
+;; =========================================================
+;; REWARD SCHEDULE MODULE
+;; =========================================================
+;; Модуль визначає лише часову структуру програми. Він не знає,
+;; як саме винагорода впливає на рішення або психологічний стан агента.
+
 to-report experiment-end
   if reward-cycles <= 0 [
     report baseline-duration + withdrawal-duration
@@ -261,14 +277,13 @@ to-report experiment-end
 end
 
 
-;; Визначає фазу для довільного tick без зберігання reward-start/reward-end.
 to-report phase-at [time]
   if time < baseline-duration [
     report "baseline"
   ]
 
-  ;; Сценарій reward-cycles = 0 моделює повну відсутність бонусної
-  ;; програми; після baseline триває контрольний withdrawal-період.
+  ;; reward-cycles = 0: після baseline виконується лише контрольний
+  ;; період без бонусів.
   if reward-cycles <= 0 [
     report "withdrawal"
   ]
@@ -285,7 +300,6 @@ to-report phase-at [time]
 end
 
 
-;; Повертає номер reward-циклу для інтерфейсу та майбутніх метрик.
 to-report cycle-at [time]
   if time < baseline-duration or reward-cycles <= 0 [
     report 0
@@ -299,77 +313,84 @@ to-report cycle-at [time]
 end
 
 
-to update-experiment-state
-  set current-phase phase-at ticks
-  set current-cycle cycle-at ticks
+to-report reward-active?
+  report current-phase = "reward"
+end
+
+;; true лише для пауз між бонусними кампаніями.
+to-report inter-cycle-withdrawal?
+  report current-phase = "withdrawal"
+    and reward-cycles > 1
+    and current-cycle < reward-cycles
+end
+
+;; true для періоду після останньої бонусної кампанії.
+;; У сценарії без бонусів весь post-baseline період є фінальним контролем.
+to-report final-withdrawal?
+  if current-phase != "withdrawal" [ report false ]
+  if reward-cycles <= 0 [ report true ]
+  report current-cycle = reward-cycles
 end
 
 
 ;; =========================================================
-;; MAIN LOOP
+;; SHOPPER PIPELINE
 ;; =========================================================
+;; Послідовність одного кроку агента є явним алгоритмом:
+;; 1) прийняти рішення;
+;; 2) записати результат;
+;; 3) оновити поведінковий стан.
 
-to go
-  if ticks >= experiment-end [
-    stop
-  ]
-
-  update-experiment-state
-
-  ask shoppers [
-    shopper-step
-  ]
-
-  record-phase-tick
-  update-visualization
-  tick
+to perform-shopper-step
+  choose-behavior
+  record-shopper-result
+  update-behavioral-state
 end
 
 
 ;; =========================================================
-;; ПОВЕДІНКА ПОКУПЦЯ
+;; SHOPPER DECISION MODULE
 ;; =========================================================
 
-to shopper-step
-  make-choice
-  record-choice
-  update-habit
-  update-intrinsic-motivation
-end
-
-
-to make-choice
-  ;; Вибір стохастичний: utility визначає ймовірність, а не жорсткий
-  ;; детермінований результат.
+to choose-behavior
+  ;; Utility визначає імовірність, а не жорсткий результат.
   set chose-target?
     random-float 1 < target-choice-probability
 end
 
 
 to-report target-choice-probability
-  let utility
-    intrinsic-choice-weight * intrinsic-motivation
-    + habit-choice-weight * habit
-    + current-reward-effect
+  report logistic target-choice-utility
+end
+
+
+to-report target-choice-utility
+  report intrinsic-contribution
+    + habit-contribution
+    + reward-contribution
     - target-choice-cost
-
-  report logistic utility
 end
 
 
-;; Поточний прямий вплив бонусу на вибір.
-;; Він існує лише у reward-фазі та лише для treatment-груп.
-to-report current-reward-effect
-  if current-phase != "reward" or treatment-group = "control" [
-    report 0
-  ]
-
-  report reward-choice-weight * reward-salience
+to-report intrinsic-contribution
+  report intrinsic-choice-weight * intrinsic-motivation
 end
 
 
-;; Salience визначається експериментальною групою.
-to-report reward-salience
+to-report habit-contribution
+  report habit-choice-weight * habit
+end
+
+
+to-report reward-contribution
+  report reward-choice-weight * active-reward-salience
+end
+
+;; Єдина точка визначення поточної політики винагороди для агента.
+;; Інші модулі не звертаються до low-reward/high-reward напряму.
+to-report active-reward-salience
+  if not reward-active? [ report 0 ]
+
   if treatment-group = "low-salience" [
     report low-reward
   ]
@@ -383,84 +404,84 @@ end
 
 
 ;; =========================================================
-;; ФОРМУВАННЯ ЗВИЧКИ
+;; BEHAVIORAL STATE MODULE
 ;; =========================================================
+;; Цей модуль реалізує одну конкретну поведінкову модель. У майбутньому
+;; сюди можна додати інші механізми без зміни Simulation Controller.
 
-to update-habit
+to update-behavioral-state
+  update-habit-state
+  update-intrinsic-motivation-state
+end
+
+
+to update-habit-state
   ifelse chose-target? [
-    ;; Звичка формується швидше, коли:
-    ;; 1) цільовий вибір повторюється;
-    ;; 2) внутрішня мотивація вища;
-    ;; 3) під час reward-фази присутня додаткова зовнішня підтримка.
-    ;; Множник (1 - habit) створює насичення біля верхньої межі 1.
-    let reward-bonus 0
-
-    if current-phase = "reward" [
-      set reward-bonus reward-salience
-    ]
-
+    ;; Повторення формує звичку. Внутрішня мотивація і активна
+    ;; винагорода прискорюють навчання; (1 - habit) задає насичення.
     let habit-gain
       habit-learning-rate
-      * (1 + intrinsic-motivation + reward-bonus)
+      * (1 + intrinsic-motivation + active-reward-salience)
       * (1 - habit)
 
     set habit clamp (habit + habit-gain) 0 1
   ]
   [
-    ;; Без повторення цільової поведінки звичка повільно згасає.
     set habit clamp (habit - habit-decay-rate) 0 1
   ]
 end
 
 
-;; =========================================================
-;; ВНУТРІШНЯ МОТИВАЦІЯ
-;; =========================================================
-
-to update-intrinsic-motivation
-  ;; Зовнішня винагорода змінює intrinsic motivation лише тоді, коли:
-  ;; - бонусна програма активна;
-  ;; - агент належить до treatment-групи;
-  ;; - агент фактично зробив цільовий вибір.
-  if current-phase != "reward" [ stop ]
+to update-intrinsic-motivation-state
+  ;; Зміна мотивації відбувається лише після фактичного цільового вибору
+  ;; під час активної бонусної програми для treatment-груп.
+  if not reward-active? [ stop ]
   if treatment-group = "control" [ stop ]
   if not chose-target? [ stop ]
 
-  let salience reward-salience
+  let salience active-reward-salience
 
   ifelse salience <= salience-threshold [
-    ;; Підтримувальна винагорода може підтверджувати цінність поведінки.
-    ;; Зростання сповільнюється, коли motivation наближається до 1.
-    let reinforcement
-      intrinsic-reinforcement-rate
-      * (salience-threshold - salience + 0.1)
-      * (1 - intrinsic-motivation)
-
-    set intrinsic-motivation
-      clamp (intrinsic-motivation + reinforcement) 0 1
+    apply-supportive-reward salience
   ]
   [
-    ;; Контролююча high-salience винагорода може витісняти внутрішню
-    ;; мотивацію. Втрата пропорційна перевищенню порога, параметру
-    ;; crowding-out-rate та наявному запасу intrinsic motivation.
-    let motivation-loss
-      crowding-out-rate
-      * (salience - salience-threshold)
-      * intrinsic-motivation
-
-    set intrinsic-motivation
-      clamp (intrinsic-motivation - motivation-loss) 0 1
+    apply-crowding-out salience
   ]
 end
 
 
+to apply-supportive-reward [salience]
+  ;; Низька психологічна значущість може підтверджувати цінність
+  ;; поведінки, не перетворюючи бонус на домінуючу причину вибору.
+  let reinforcement
+    intrinsic-reinforcement-rate
+    * (salience-threshold - salience + 0.1)
+    * (1 - intrinsic-motivation)
+
+  set intrinsic-motivation
+    clamp (intrinsic-motivation + reinforcement) 0 1
+end
+
+
+to apply-crowding-out [salience]
+  ;; Надмірно значуща винагорода може витісняти внутрішню мотивацію.
+  ;; Втрата залежить від перевищення порога, crowding-out-rate та
+  ;; поточного запасу внутрішньої мотивації.
+  let motivation-loss
+    crowding-out-rate
+    * (salience - salience-threshold)
+    * intrinsic-motivation
+
+  set intrinsic-motivation
+    clamp (intrinsic-motivation - motivation-loss) 0 1
+end
+
+
 ;; =========================================================
-;; ЗБІР РЕЗУЛЬТАТІВ
+;; METRICS MODULE: RECORDING
 ;; =========================================================
 
-to record-choice
-  ;; Кожен shopper робить один вибір за tick. Тому на рівні агента
-  ;; достатньо накопичувати лише кількість успішних цільових виборів.
+to record-shopper-result
   if not chose-target? [ stop ]
 
   if current-phase = "baseline" [
@@ -477,9 +498,7 @@ to record-choice
 end
 
 
-;; Знаменник choice-rate однаковий для всіх агентів: кожен агент
-;; має рівно одну можливість вибору на кожному виконаному tick.
-to record-phase-tick
+to record-system-state
   if current-phase = "baseline" [
     set baseline-ticks-completed baseline-ticks-completed + 1
   ]
@@ -495,47 +514,9 @@ end
 
 
 ;; =========================================================
-;; ВІЗУАЛІЗАЦІЯ
+;; METRICS MODULE: BASIC METRICS
 ;; =========================================================
 
-to update-visualization
-  ask shoppers [
-    ;; X = intrinsic motivation, Y = habit strength.
-    ;; Тому рух агента праворуч означає вищу внутрішню мотивацію,
-    ;; а рух угору — сильнішу звичку.
-    let x-position scale-value intrinsic-motivation min-pxcor max-pxcor
-    let y-position scale-value habit min-pycor max-pycor
-
-    ;; Невеликий jitter зменшує повне накладання агентів.
-    set x-position x-position + random-float 0.3 - 0.15
-    set y-position y-position + random-float 0.3 - 0.15
-
-    setxy
-      clamp x-position min-pxcor max-pxcor
-      clamp y-position min-pycor max-pycor
-
-    ifelse chose-target? [
-      set size 1
-    ]
-    [
-      set size 0.55
-    ]
-  ]
-end
-
-
-to-report scale-value [value minimum maximum]
-  report minimum + value * (maximum - minimum)
-end
-
-
-;; =========================================================
-;; МЕТРИКИ
-;; =========================================================
-
-;; Частка цільових виборів заданої групи у заданому типі фази.
-;; Знаменник = кількість агентів у групі × кількість виконаних ticks фази.
-;; Для repeated-сценарію reward/withdrawal агрегуються за всі цикли.
 to-report choice-rate [group-name phase-name]
   let selected-shoppers shoppers with [
     treatment-group = group-name
@@ -586,28 +567,29 @@ to-report mean-habit [group-name]
 end
 
 
-;; Різниця withdrawal choice rate між high-salience і control.
-;; Від'ємне значення інтерпретується як crowding-out.
+;; =========================================================
+;; METRICS MODULE: DERIVED BUSINESS METRICS
+;; =========================================================
+
+;; Універсальна різниця між treatment-групою та control після бонусів.
+to-report post-reward-effect [group-name]
+  report choice-rate group-name "withdrawal"
+    - choice-rate "control" "withdrawal"
+end
+
+;; Від'ємне значення означає crowding-out high-salience групи.
 to-report high-reward-crowding-out-effect
-  report
-    choice-rate "high-salience" "withdrawal"
-    - choice-rate "control" "withdrawal"
+  report post-reward-effect "high-salience"
 end
 
-
-;; Різниця withdrawal choice rate між low-salience і control.
-;; Додатне значення означає довготривалий позитивний ефект.
+;; Додатне значення означає довготривалий позитивний ефект low-salience.
 to-report low-reward-persistence-effect
-  report
-    choice-rate "low-salience" "withdrawal"
-    - choice-rate "control" "withdrawal"
+  report post-reward-effect "low-salience"
 end
 
 
-;; Загальна реалізація падіння після скасування винагороди.
 to-report withdrawal-drop [group-name]
-  report
-    choice-rate group-name "reward"
+  report choice-rate group-name "reward"
     - choice-rate group-name "withdrawal"
 end
 
@@ -621,28 +603,57 @@ to-report low-reward-withdrawal-drop
   report withdrawal-drop "low-salience"
 end
 
-
-;; Частка reward-phase поведінки, яка збереглась у withdrawal-фазах.
-to-report retention-ratio [group-name]
-  let during-rate choice-rate group-name "reward"
-
-  if during-rate = 0 [ report 0 ]
-  report choice-rate group-name "withdrawal" / during-rate
-end
-
-
+;; Конкретні reporters залишені як стабільний зовнішній контракт моделі.
+;; Загальний persistence-ratio навмисно не використовується.
 to-report high-reward-retention-ratio
-  report retention-ratio "high-salience"
+  report safe-rate
+    (choice-rate "high-salience" "withdrawal")
+    (choice-rate "high-salience" "reward")
 end
 
 
 to-report low-reward-retention-ratio
-  report retention-ratio "low-salience"
+  report safe-rate
+    (choice-rate "low-salience" "withdrawal")
+    (choice-rate "low-salience" "reward")
 end
 
 
 ;; =========================================================
-;; ДОПОМІЖНІ REPORTERS
+;; VISUALIZATION MODULE
+;; =========================================================
+
+to update-visualization
+  ask shoppers [
+    ;; X = intrinsic motivation; Y = habit strength.
+    let x-position scale-value intrinsic-motivation min-pxcor max-pxcor
+    let y-position scale-value habit min-pycor max-pycor
+
+    ;; Невеликий jitter зменшує повне накладання агентів.
+    set x-position x-position + random-float 0.3 - 0.15
+    set y-position y-position + random-float 0.3 - 0.15
+
+    setxy
+      clamp x-position min-pxcor max-pxcor
+      clamp y-position min-pycor max-pycor
+
+    ifelse chose-target? [
+      set size 1
+    ]
+    [
+      set size 0.55
+    ]
+  ]
+end
+
+
+to-report scale-value [value minimum maximum]
+  report minimum + value * (maximum - minimum)
+end
+
+
+;; =========================================================
+;; UTILITY FUNCTIONS
 ;; =========================================================
 
 to-report safe-rate [numerator denominator]
@@ -676,6 +687,7 @@ end
     <view x="415" wrappingAllowedX="true" y="15" frameRate="30.0" minPycor="-16" height="569" showTickCounter="true" patchSize="17.12121212121212" fontSize="10" wrappingAllowedY="true" width="569" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
     <button x="100" y="30" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55">go</button>
     <slider x="30" step="5" y="135" max="200" display="reward-duration" height="33" min="10" direction="Horizontal" default="60.0" variable="reward-duration" width="175" sizeVersion="0"></slider>
+    <slider x="120" step="100" y="90" max="3000" display="number-of-shoppers" height="33" min="300" direction="Horizontal" default="1000.0" variable="number-of-shoppers" width="175" sizeVersion="0"></slider>
     <monitor x="255" precision="3" y="550" height="60" fontSize="11" display="High Salience" width="100" sizeVersion="0">choice-rate "high-salience" "withdrawal"</monitor>
     <monitor x="145" precision="3" y="550" height="60" fontSize="11" display="Low Salience" width="100" sizeVersion="0">choice-rate "low-salience" "withdrawal"</monitor>
     <monitor x="30" precision="3" y="550" height="60" fontSize="11" display="Control" width="105" sizeVersion="0">choice-rate "control" "withdrawal"</monitor>
@@ -753,19 +765,24 @@ end
       </pen>
     </plot>
     <slider x="215" step="5" y="135" max="200" display="withdrawal-duration" height="33" min="10" direction="Horizontal" default="60.0" variable="withdrawal-duration" width="175" sizeVersion="0"></slider>
+    <slider x="215" step="1" y="260" max="6" display="reward-cycles" height="33" min="0" direction="Horizontal" default="3.0" variable="reward-cycles" width="175" sizeVersion="0"></slider>
     <slider x="30" step="0.05" y="180" max="1" display="low-reward" height="33" min="0" direction="Horizontal" default="0.15" variable="low-reward" width="175" sizeVersion="0"></slider>
     <slider x="215" step="0.05" y="180" max="1" display="high-reward" height="33" min="0" direction="Horizontal" default="0.9" variable="high-reward" width="175" sizeVersion="0"></slider>
     <slider x="30" step="0.005" y="220" max="0.10" display="habit-learning-rate" height="33" min="0" direction="Horizontal" default="0.005" variable="habit-learning-rate" width="175" sizeVersion="0"></slider>
     <slider x="215" step="0.005" y="220" max="0.10" display="crowding-out-rate" height="33" min="0" direction="Horizontal" default="0.02" variable="crowding-out-rate" width="175" sizeVersion="0"></slider>
+    <monitor x="30" precision="17" y="280" height="60" fontSize="11" width="100">current-phase</monitor>
+    <monitor x="145" precision="0" y="280" height="60" fontSize="11" display="current-cycle" width="60" sizeVersion="0">current-cycle</monitor>
+    <monitor x="30" precision="3" y="345" height="60" fontSize="11" width="205">high-reward-crowding-out-effect</monitor>
+    <monitor x="30" precision="3" y="410" height="60" fontSize="11" width="205">low-reward-persistence-effect</monitor>
     <button x="30" y="30" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55">setup</button>
-    <slider x="30" step="100" y="90" max="3000" display="number-of-shoppers" height="33" min="300" direction="Horizontal" default="1000.0" variable="number-of-shoppers" width="175" sizeVersion="0"></slider>
-    <slider x="215" step="1" y="90" max="6" display="reward-cycles" height="33" min="0" direction="Horizontal" default="4.0" variable="reward-cycles" width="175" sizeVersion="0"></slider>
-    <monitor x="30" precision="3" y="365" height="60" fontSize="11" width="205">high-reward-crowding-out-effect</monitor>
-    <monitor x="30" precision="3" y="435" height="60" fontSize="11" width="205">low-reward-persistence-effect</monitor>
-    <monitor x="30" precision="17" y="280" height="60" fontSize="11" width="100" sizeVersion="0">current-phase</monitor>
-    <monitor x="215" precision="0" y="280" height="60" fontSize="11" width="96" display="current-cycle">current-cycle</monitor>
   </widgets>
-  <info>## ЩО МОДЕЛЮЄ ЦЯ МОДЕЛЬ?
+  <info>## Архітектура моделі
+
+Модель організована як конфігуроване симуляційне ядро з окремими модулями: Simulation Controller, Reward Schedule, Shopper Decision, Behavioral State, Metrics і Visualization. Верхньорівневий цикл не містить поведінкових формул; конкретні механізми прийняття рішення та навчання реалізовані в окремих процедурах і можуть бути замінені або розширені.
+
+Reward Schedule підтримує відсутність бонусної програми, одну кампанію та повторні кампанії з паузами. Reporters `inter-cycle-withdrawal?` і `final-withdrawal?` розрізняють проміжні паузи та фінальний період спостереження.
+
+## ЩО МОДЕЛЮЄ ЦЯ МОДЕЛЬ?
 
 Модель досліджує, як бонусні винагороди впливають на сталий або здоровий вибір покупців під час дії програми та після її призупинення. Центральний механізм — баланс між формуванням звички та можливим витісненням внутрішньої мотивації зовнішньою винагородою.
 
