@@ -1,0 +1,91 @@
+@startuml
+
+title
+    Shopper State Diagram
+    <i>(Reward – Motivation – Habit Model)</i>
+end title
+
+skinparam backgroundColor white
+skinparam state {
+    BackgroundColor #F8F8F8
+    BorderColor #444444
+    FontColor #111111
+}
+
+[*] --> Initialized
+
+state Initialized {
+    Initialized : Set shopper traits
+    Initialized : Initialize motivation
+    Initialized : Initialize habit
+    Initialized : Initialize choice history
+}
+
+Initialized --> DecideChoice
+
+state DecideChoice {
+    DecideChoice : Evaluate target option
+    DecideChoice : Evaluate conventional option
+    DecideChoice : Select an option probabilistically
+}
+
+DecideChoice --> UpdateAfterTarget : Choose TARGET
+DecideChoice --> UpdateAfterConventional : Choose CONVENTIONAL
+
+state UpdateAfterTarget {
+    UpdateAfterTarget : Add target choice to history
+    UpdateAfterTarget : Update habit strength
+    UpdateAfterTarget : Update intrinsic motivation
+    UpdateAfterTarget : Apply reinforcement or crowding-out
+}
+
+state UpdateAfterConventional {
+    UpdateAfterConventional : Add conventional choice to history
+    UpdateAfterConventional : Update habit strength
+}
+
+UpdateAfterTarget --> WaitForNextOpportunity
+UpdateAfterConventional --> WaitForNextOpportunity
+
+state WaitForNextOpportunity {
+    WaitForNextOpportunity : Advance simulation time
+}
+
+WaitForNextOpportunity --> EndCheck
+
+state EndCheck <<choice>>
+
+EndCheck --> DecideChoice : Continue
+EndCheck --> CollectMetrics : End simulation
+
+state CollectMetrics {
+    CollectMetrics : Target Choice Rate
+    CollectMetrics : Mean Intrinsic Motivation
+    CollectMetrics : Mean Habit Strength
+    CollectMetrics : Intrinsic Motivation Gap vs Control
+    CollectMetrics : Persistence
+    CollectMetrics : Persistence Index
+}
+
+CollectMetrics --> [*]
+
+legend right
+Shopper traits:
+- price-sensitivity
+- reward-sensitivity
+- habit-sensitivity
+- autonomy-sensitivity
+
+Dynamic states:
+- intrinsic motivation
+- habit strength
+- target-choice history
+
+Environment:
+- reward magnitude
+- program phase
+- conventional option cost
+- salience threshold
+endlegend
+
+@enduml

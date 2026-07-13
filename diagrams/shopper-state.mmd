@@ -1,0 +1,41 @@
+stateDiagram-v2
+    [*] --> Initialized
+
+    Initialized: Set shopper traits
+    Initialized: Initialize motivation, habit, and history
+
+    Initialized --> DecideChoice
+
+    DecideChoice: Evaluate target and conventional options
+    DecideChoice: Choose one option probabilistically
+
+    DecideChoice --> UpdateAfterTarget: Choose TARGET
+    DecideChoice --> UpdateAfterConventional: Choose CONVENTIONAL
+
+    UpdateAfterTarget: Add target choice to history
+    UpdateAfterTarget: Update habit strength
+    UpdateAfterTarget: Update intrinsic motivation
+    UpdateAfterTarget: Reinforcement or crowding-out may occur
+
+    UpdateAfterConventional: Add conventional choice to history
+    UpdateAfterConventional: Update habit strength
+
+    UpdateAfterTarget --> WaitForNextOpportunity
+    UpdateAfterConventional --> WaitForNextOpportunity
+
+    WaitForNextOpportunity: Advance simulation time
+    WaitForNextOpportunity --> EndCheck
+
+    state EndCheck <<choice>>
+
+    EndCheck --> DecideChoice: Simulation continues
+    EndCheck --> CollectMetrics: Simulation ends
+
+    CollectMetrics: Target Choice Rate
+    CollectMetrics: Mean Intrinsic Motivation
+    CollectMetrics: Mean Habit Strength
+    CollectMetrics: Intrinsic Motivation Gap vs Control
+    CollectMetrics: Persistence
+    CollectMetrics: Persistence Index
+
+    CollectMetrics --> [*]
