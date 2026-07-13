@@ -858,6 +858,53 @@ to-report bounded-random-normal
     minimum
     maximum
 end
+
+
+;; =========================================================
+;; BEHAVIORSEARCH FITNESS REPORTERS
+;; =========================================================
+;; These reporters convert the multi-criteria policy objective into
+;; one scalar fitness value that BehaviorSearch can maximize.
+;; The final withdrawal horizon should be held fixed during search.
+
+;; Normalized reward exposure/cost over the proposed search space.
+;; Maximum reference exposure = 0.95 salience * 80 ticks * 4 cycles.
+to-report behaviorsearch-normalized-cost
+  report (high-reward-salience * reward-duration * reward-cycles)
+         / (0.95 * 80 * 4)
+end
+
+;; Balanced policy objective:
+;; 1) prioritize durable behavior after withdrawal;
+;; 2) retain some value for uptake while rewards are active;
+;; 3) reward preservation of intrinsic motivation relative to control;
+;; 4) penalize more intensive/costly campaign configurations.
+;; Expected approximate scale is around 0 to 0.35 for the current model.
+to-report behaviorsearch-fitness
+  let durability persistence-index "high-salience"
+  let uptake choice-rate "high-salience" "reward"
+  let motivation-gap high-reward-crowding-out-effect
+  let policy-cost behaviorsearch-normalized-cost
+
+  report durability
+       + 0.20 * uptake
+       + 0.50 * motivation-gap
+       - 0.10 * policy-cost
+end
+
+;; Alternative constrained-style objective. A negative motivation gap
+;; is penalized more strongly, while a positive gap receives no bonus.
+to-report behaviorsearch-fitness-no-crowding
+  let durability persistence-index "high-salience"
+  let uptake choice-rate "high-salience" "reward"
+  let motivation-penalty min list 0 high-reward-crowding-out-effect
+  let policy-cost behaviorsearch-normalized-cost
+
+  report durability
+       + 0.20 * uptake
+       + 1.00 * motivation-penalty
+       - 0.10 * policy-cost
+end
 </code>
   <widgets>
     <view x="479" wrappingAllowedX="true" y="15" frameRate="30.0" minPycor="-16" height="515" showTickCounter="true" patchSize="15.5" fontSize="10" wrappingAllowedY="true" width="515" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16" />
