@@ -890,7 +890,7 @@ end
     <monitor x="30" precision="17" y="340" height="60" fontSize="11" width="100">current-phase</monitor>
     <monitor x="30" precision="3" y="425" height="60" fontSize="11" width="205">high-reward-crowding-out-effect</monitor>
     <slider x="245" step="0.05" y="185" max="1" display="high-reward-salience" height="33" min="0" direction="Horizontal" default="0.9" variable="high-reward-salience" width="175" sizeVersion="0"></slider>
-    <slider x="245" step="0.005" y="270" max="0.10" display="crowding-out-rate" height="33" min="0" direction="Horizontal" default="0.02" variable="crowding-out-rate" width="175" sizeVersion="0"></slider>
+    <slider x="245" step="0.005" y="270" max="0.10" display="crowding-out-rate" height="33" min="0" direction="Horizontal" default="0.095" variable="crowding-out-rate" width="175" sizeVersion="0"></slider>
     <monitor x="245" precision="0" y="345" height="60" fontSize="11" display="current-cycle" width="100" sizeVersion="0">current-cycle</monitor>
     <monitor x="245" precision="3" y="425" height="60" fontSize="11" width="205">low-reward-persistence-effect</monitor>
     <note x="155" y="95" backgroundDark="0" fontSize="12" width="150" markdown="false" height="25" textColorDark="-1" textColorLight="-16777216" backgroundLight="0">Loyalty program</note>
