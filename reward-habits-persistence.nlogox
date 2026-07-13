@@ -1114,6 +1114,20 @@ BehaviourSpace-експеримент `regression-test` використовує
 
 - **Persistence(group)** is the cumulative target-choice rate during the final withdrawal period after the last reward cycle.
 - **Persistence Index(group)** = Persistence(group) − BaselineChoiceRate(group). Positive values mean the behavior remains above its pre-reward baseline; zero means return to baseline; negative values mean post-reward behavior falls below baseline.
+
+
+## Recommended BehaviorSpace experiments
+
+### E1 reward magnitude and crowding-out
+Varies high reward salience around the model threshold (0.60) while holding schedule constant. It identifies the point at which higher short-term uptake is accompanied by lower intrinsic motivation and weaker post-reward persistence.
+
+### E2 reward magnitude x duration
+Crosses reward magnitude with campaign duration. It tests whether longer exposure creates enough habit to offset motivational crowding-out, using Persistence Index as the main outcome.
+
+### E3 repeated campaign structure
+Varies the number, duration, and withdrawal spacing of campaigns. It tests whether repeated shorter campaigns produce better persistence than a single or prolonged intervention.
+
+All experiments use 30 repetitions per configuration and record behavior, motivation, habit, persistence, withdrawal drop, and retention metrics.
 </info>
   <turtleShapes>
     <shape name="default" rotatable="true" editableColorIndex="0">
@@ -1950,42 +1964,6 @@ BehaviourSpace-експеримент `regression-test` використовує
   </linkShapes>
   <previewCommands>setup repeat 75 [ go ]</previewCommands>
   <experiments>
-    <experiment name="reward-salience-factorial-experiment" repetitions="20" sequentialRunOrder="true" runMetricsEveryStep="false">
-      <setup>setup</setup>
-      <go>go</go>
-      <exitCondition>ticks &gt;= experiment-end</exitCondition>
-      <metrics>
-        <metric>high-reward-crowding-out-effect</metric>
-        <metric>low-reward-persistence-effect</metric>
-        <metric>choice-rate "control" "withdrawal"</metric>
-        <metric>choice-rate "low-salience" "withdrawal"</metric>
-        <metric>choice-rate "high-salience" "withdrawal"</metric>
-        <metric>mean-intrinsic-motivation "control"</metric>
-        <metric>mean-intrinsic-motivation "low-salience"</metric>
-        <metric>mean-intrinsic-motivation "high-salience"</metric>
-        <metric>mean-habit "control"</metric>
-        <metric>mean-habit "low-salience"</metric>
-        <metric>mean-habit "high-salience"</metric>
-        <metric>persistence "control"</metric>
-        <metric>persistence "low-salience"</metric>
-        <metric>persistence "high-salience"</metric>
-        <metric>persistence-index "control"</metric>
-        <metric>persistence-index "low-salience"</metric>
-        <metric>persistence-index "high-salience"</metric>
-      </metrics>
-      <constants>
-        <enumeratedValueSet variable="low-reward-salience">
-          <value value="0.2" />
-          <value value="0.3" />
-          <value value="0.4" />
-        </enumeratedValueSet>
-        <enumeratedValueSet variable="high-reward-salience">
-          <value value="0.7" />
-          <value value="0.9" />
-          <value value="1" />
-        </enumeratedValueSet>
-      </constants>
-    </experiment>
     <experiment name="regression-test" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="false">
       <setup>random-seed 12345
 setup</setup>
@@ -2027,170 +2005,178 @@ setup</setup>
         </enumeratedValueSet>
       </constants>
     </experiment>
-    <experiment name="Schedule structure experiment" repetitions="30" sequentialRunOrder="true" runMetricsEveryStep="false">
+    <experiment name="E1 reward magnitude and crowding-out" repetitions="30" sequentialRunOrder="true" runMetricsEveryStep="false">
       <setup>setup</setup>
       <go>go</go>
       <exitCondition>simulation-finished?</exitCondition>
       <metrics>
-        <metric>final-withdrawal-choice-rate "control"</metric>
-        <metric>final-withdrawal-choice-rate "low-salience"</metric>
-        <metric>final-withdrawal-choice-rate "high-salience"</metric>
-        <metric>inter-cycle-choice-rate "control"</metric>
-        <metric>inter-cycle-choice-rate "low-salience"</metric>
-        <metric>inter-cycle-choice-rate "high-salience"</metric>
-        <metric>high-reward-crowding-out-effect</metric>
-        <metric>low-reward-persistence-effect</metric>
-        <metric>mean-intrinsic-motivation "control"</metric>
-        <metric>mean-intrinsic-motivation "low-salience"</metric>
-        <metric>mean-intrinsic-motivation "high-salience"</metric>
-        <metric>mean-habit "control"</metric>
-        <metric>mean-habit "low-salience"</metric>
-        <metric>mean-habit "high-salience"</metric>
+        <metric>choice-rate "control" "baseline"</metric>
+        <metric>choice-rate "low-salience" "baseline"</metric>
+        <metric>choice-rate "high-salience" "baseline"</metric>
+        <metric>choice-rate "control" "reward"</metric>
+        <metric>choice-rate "low-salience" "reward"</metric>
+        <metric>choice-rate "high-salience" "reward"</metric>
         <metric>persistence "control"</metric>
         <metric>persistence "low-salience"</metric>
         <metric>persistence "high-salience"</metric>
         <metric>persistence-index "control"</metric>
         <metric>persistence-index "low-salience"</metric>
         <metric>persistence-index "high-salience"</metric>
+        <metric>mean-intrinsic-motivation "control"</metric>
+        <metric>mean-intrinsic-motivation "low-salience"</metric>
+        <metric>mean-intrinsic-motivation "high-salience"</metric>
+        <metric>mean-habit "control"</metric>
+        <metric>mean-habit "low-salience"</metric>
+        <metric>mean-habit "high-salience"</metric>
+        <metric>high-reward-crowding-out-effect</metric>
+        <metric>low-reward-persistence-effect</metric>
+        <metric>high-reward-withdrawal-drop</metric>
+        <metric>low-reward-withdrawal-drop</metric>
+        <metric>high-reward-retention-ratio</metric>
+        <metric>low-reward-retention-ratio</metric>
       </metrics>
       <constants>
+        <enumeratedValueSet variable="number-of-shoppers">
+          <value value="1200" />
+        </enumeratedValueSet>
         <enumeratedValueSet variable="reward-cycles">
-          <value value="0" />
           <value value="1" />
-          <value value="3" />
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="reward-duration">
+          <value value="60" />
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="withdrawal-duration">
+          <value value="80" />
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="low-reward-salience">
+          <value value="0.15" />
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="high-reward-salience">
+          <value value="0.45" />
+          <value value="0.55" />
+          <value value="0.6" />
+          <value value="0.65" />
+          <value value="0.75" />
+          <value value="0.85" />
+          <value value="0.95" />
+        </enumeratedValueSet>
+      </constants>
+    </experiment>
+    <experiment name="E2 reward magnitude x duration" repetitions="30" sequentialRunOrder="true" runMetricsEveryStep="false">
+      <setup>setup</setup>
+      <go>go</go>
+      <exitCondition>simulation-finished?</exitCondition>
+      <metrics>
+        <metric>choice-rate "control" "baseline"</metric>
+        <metric>choice-rate "low-salience" "baseline"</metric>
+        <metric>choice-rate "high-salience" "baseline"</metric>
+        <metric>choice-rate "control" "reward"</metric>
+        <metric>choice-rate "low-salience" "reward"</metric>
+        <metric>choice-rate "high-salience" "reward"</metric>
+        <metric>persistence "control"</metric>
+        <metric>persistence "low-salience"</metric>
+        <metric>persistence "high-salience"</metric>
+        <metric>persistence-index "control"</metric>
+        <metric>persistence-index "low-salience"</metric>
+        <metric>persistence-index "high-salience"</metric>
+        <metric>mean-intrinsic-motivation "control"</metric>
+        <metric>mean-intrinsic-motivation "low-salience"</metric>
+        <metric>mean-intrinsic-motivation "high-salience"</metric>
+        <metric>mean-habit "control"</metric>
+        <metric>mean-habit "low-salience"</metric>
+        <metric>mean-habit "high-salience"</metric>
+        <metric>high-reward-crowding-out-effect</metric>
+        <metric>low-reward-persistence-effect</metric>
+        <metric>high-reward-withdrawal-drop</metric>
+        <metric>low-reward-withdrawal-drop</metric>
+        <metric>high-reward-retention-ratio</metric>
+        <metric>low-reward-retention-ratio</metric>
+      </metrics>
+      <constants>
+        <enumeratedValueSet variable="number-of-shoppers">
+          <value value="1200" />
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="reward-cycles">
+          <value value="1" />
         </enumeratedValueSet>
         <enumeratedValueSet variable="reward-duration">
           <value value="20" />
           <value value="40" />
           <value value="60" />
-          <value value="120" />
-        </enumeratedValueSet>
-        <enumeratedValueSet variable="withdrawal-duration">
-          <value value="30" />
-        </enumeratedValueSet>
-        <enumeratedValueSet variable="number-of-shoppers">
-          <value value="1000" />
-        </enumeratedValueSet>
-        <enumeratedValueSet variable="low-reward-salience">
-          <value value="0.3" />
-        </enumeratedValueSet>
-        <enumeratedValueSet variable="high-reward-salience">
-          <value value="0.9" />
-        </enumeratedValueSet>
-      </constants>
-    </experiment>
-    <experiment name="reward-duration-experiment-v2" repetitions="20" sequentialRunOrder="true" runMetricsEveryStep="false">
-      <setup>setup</setup>
-      <go>go</go>
-      <exitCondition>simulation-finished?</exitCondition>
-      <metrics>
-        <metric>high-reward-crowding-out-effect</metric>
-        <metric>low-reward-persistence-effect</metric>
-        <metric>final-withdrawal-choice-rate "control"</metric>
-        <metric>final-withdrawal-choice-rate "low-salience"</metric>
-        <metric>final-withdrawal-choice-rate "high-salience"</metric>
-        <metric>mean-intrinsic-motivation "control"</metric>
-        <metric>mean-intrinsic-motivation "low-salience"</metric>
-        <metric>mean-intrinsic-motivation "high-salience"</metric>
-        <metric>mean-habit "control"</metric>
-        <metric>mean-habit "low-salience"</metric>
-        <metric>mean-habit "high-salience"</metric>
-        <metric>high-reward-withdrawal-drop</metric>
-        <metric>low-reward-withdrawal-drop</metric>
-        <metric>high-reward-retention-ratio</metric>
-        <metric>low-reward-retention-ratio</metric>
-        <metric>persistence "control"</metric>
-        <metric>persistence "low-salience"</metric>
-        <metric>persistence "high-salience"</metric>
-        <metric>persistence-index "control"</metric>
-        <metric>persistence-index "low-salience"</metric>
-        <metric>persistence-index "high-salience"</metric>
-      </metrics>
-      <constants>
-        <enumeratedValueSet variable="reward-cycles">
-          <value value="1" />
-        </enumeratedValueSet>
-        <enumeratedValueSet variable="reward-duration">
-          <value value="15" />
-          <value value="30" />
-          <value value="60" />
           <value value="90" />
           <value value="120" />
         </enumeratedValueSet>
-        <enumeratedValueSet variable="high-reward-salience">
-          <value value="0.7" />
-          <value value="0.85" />
-          <value value="1" />
-        </enumeratedValueSet>
         <enumeratedValueSet variable="withdrawal-duration">
-          <value value="60" />
+          <value value="80" />
         </enumeratedValueSet>
         <enumeratedValueSet variable="low-reward-salience">
-          <value value="0.3" />
+          <value value="0.15" />
         </enumeratedValueSet>
-        <enumeratedValueSet variable="number-of-shoppers">
-          <value value="1000" />
+        <enumeratedValueSet variable="high-reward-salience">
+          <value value="0.55" />
+          <value value="0.65" />
+          <value value="0.75" />
+          <value value="0.85" />
+          <value value="0.95" />
         </enumeratedValueSet>
       </constants>
     </experiment>
-    <experiment name="repeated-schedule-sensitivity" repetitions="1" sequentialRunOrder="false" runMetricsEveryStep="false">
+    <experiment name="E3 repeated campaign structure" repetitions="30" sequentialRunOrder="true" runMetricsEveryStep="false">
       <setup>setup</setup>
       <go>go</go>
       <exitCondition>simulation-finished?</exitCondition>
       <metrics>
-        <metric>high-reward-crowding-out-effect</metric>
-        <metric>low-reward-persistence-effect</metric>
-        <metric>final-withdrawal-choice-rate "control"</metric>
-        <metric>final-withdrawal-choice-rate "low-salience"</metric>
-        <metric>final-withdrawal-choice-rate "high-salience"</metric>
-        <metric>inter-cycle-choice-rate "control"</metric>
-        <metric>inter-cycle-choice-rate "low-salience"</metric>
-        <metric>inter-cycle-choice-rate "high-salience"</metric>
-        <metric>mean-intrinsic-motivation "control"</metric>
-        <metric>mean-intrinsic-motivation "low-salience"</metric>
-        <metric>mean-intrinsic-motivation "high-salience"</metric>
-        <metric>mean-habit "control"</metric>
-        <metric>mean-habit "low-salience"</metric>
-        <metric>mean-habit "high-salience"</metric>
-        <metric>high-reward-retention-ratio</metric>
-        <metric>low-reward-retention-ratio</metric>
-        <metric>high-reward-withdrawal-drop</metric>
-        <metric>low-reward-withdrawal-drop</metric>
+        <metric>choice-rate "control" "baseline"</metric>
+        <metric>choice-rate "low-salience" "baseline"</metric>
+        <metric>choice-rate "high-salience" "baseline"</metric>
+        <metric>choice-rate "control" "reward"</metric>
+        <metric>choice-rate "low-salience" "reward"</metric>
+        <metric>choice-rate "high-salience" "reward"</metric>
         <metric>persistence "control"</metric>
         <metric>persistence "low-salience"</metric>
         <metric>persistence "high-salience"</metric>
         <metric>persistence-index "control"</metric>
         <metric>persistence-index "low-salience"</metric>
         <metric>persistence-index "high-salience"</metric>
+        <metric>mean-intrinsic-motivation "control"</metric>
+        <metric>mean-intrinsic-motivation "low-salience"</metric>
+        <metric>mean-intrinsic-motivation "high-salience"</metric>
+        <metric>mean-habit "control"</metric>
+        <metric>mean-habit "low-salience"</metric>
+        <metric>mean-habit "high-salience"</metric>
+        <metric>high-reward-crowding-out-effect</metric>
+        <metric>low-reward-persistence-effect</metric>
+        <metric>high-reward-withdrawal-drop</metric>
+        <metric>low-reward-withdrawal-drop</metric>
+        <metric>high-reward-retention-ratio</metric>
+        <metric>low-reward-retention-ratio</metric>
       </metrics>
       <constants>
+        <enumeratedValueSet variable="number-of-shoppers">
+          <value value="1200" />
+        </enumeratedValueSet>
         <enumeratedValueSet variable="reward-cycles">
           <value value="1" />
           <value value="2" />
           <value value="3" />
           <value value="4" />
-          <value value="5" />
         </enumeratedValueSet>
         <enumeratedValueSet variable="reward-duration">
-          <value value="15" />
-          <value value="30" />
+          <value value="20" />
+          <value value="40" />
           <value value="60" />
         </enumeratedValueSet>
         <enumeratedValueSet variable="withdrawal-duration">
-          <value value="15" />
-          <value value="30" />
-          <value value="60" />
-        </enumeratedValueSet>
-        <enumeratedValueSet variable="high-reward-salience">
-          <value value="0.7" />
-          <value value="0.9" />
-          <value value="1" />
+          <value value="20" />
+          <value value="40" />
+          <value value="80" />
         </enumeratedValueSet>
         <enumeratedValueSet variable="low-reward-salience">
-          <value value="0.3" />
+          <value value="0.15" />
         </enumeratedValueSet>
-        <enumeratedValueSet variable="number-of-shoppers">
-          <value value="1000" />
+        <enumeratedValueSet variable="high-reward-salience">
+          <value value="0.75" />
+          <value value="0.9" />
         </enumeratedValueSet>
       </constants>
     </experiment>
