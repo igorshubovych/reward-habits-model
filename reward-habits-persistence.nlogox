@@ -923,8 +923,95 @@ to-report behaviorsearch-fitness-no-crowding
 end
 ]]></code>
   <widgets>
-    <view x="479" wrappingAllowedX="true" y="15" frameRate="30.0" minPycor="-16" height="515" showTickCounter="true" patchSize="15.5" fontSize="10" wrappingAllowedY="true" width="515" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
-    <plot x="1010" autoPlotX="true" yMax="1.0" autoPlotY="true" y="5" xMin="0.0" height="220" legend="true" xMax="0.0" yMin="0.0" width="390" display="Target choice rate">
+    <view x="455" wrappingAllowedX="true" y="15" frameRate="30.0" minPycor="-16" height="515" showTickCounter="true" patchSize="15.5" fontSize="10" wrappingAllowedY="true" width="515" tickCounterLabel="ticks" maxPycor="16" updateMode="0" maxPxcor="16" minPxcor="-16"></view>
+    <button x="100" y="15" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55">go</button>
+    <slider x="245" step="100" y="15" max="3000" display="number-of-shoppers" height="33" min="300" direction="Horizontal" default="1000.0" variable="number-of-shoppers" width="175" sizeVersion="0"></slider>
+    <note x="155" y="80" backgroundDark="0" fontSize="12" width="150" markdown="false" height="25" textColorDark="-1" textColorLight="-16777216" backgroundLight="0">Loyalty program</note>
+    <button x="30" y="15" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55">setup</button>
+    <slider x="30" step="1" y="115" max="6" display="reward-cycles" height="33" min="0" direction="Horizontal" default="1.0" variable="reward-cycles" width="125" sizeVersion="0"></slider>
+    <slider x="30" step="5" y="158" max="200" display="reward-duration" height="33" min="10" direction="Horizontal" default="60.0" variable="reward-duration" width="140" sizeVersion="0"></slider>
+    <slider x="215" step="5" y="158" max="200" display="withdrawal-duration" height="33" min="10" direction="Horizontal" default="60.0" variable="withdrawal-duration" width="160" sizeVersion="0"></slider>
+    <slider x="30" step="0.05" y="200" max="1" display="low-reward-salience" height="33" min="0" direction="Horizontal" default="0.15" variable="low-reward-salience" width="175" sizeVersion="0"></slider>
+    <slider x="215" step="0.05" y="200" max="1" display="high-reward-salience" height="33" min="0" direction="Horizontal" default="0.9" variable="high-reward-salience" width="175" sizeVersion="0"></slider>
+    <monitor x="245" precision="0" y="285" height="60" fontSize="11" width="200" display="current-cycle">current-cycle</monitor>
+    <monitor x="30" precision="17" y="285" height="60" fontSize="11" width="205">current-phase</monitor>
+    <note x="125" y="445" backgroundDark="0" fontSize="12" width="220" markdown="false" height="30" textColorDark="-1" textColorLight="-16777216" backgroundLight="0">Persistence (final withdrawal)</note>
+    <monitor x="290" precision="3" y="485" height="60" fontSize="11" display="High Salience" width="100" sizeVersion="0">persistence "high-salience"</monitor>
+    <monitor x="162" precision="3" y="485" height="60" fontSize="11" display="Low Salience" width="100" sizeVersion="0">persistence "low-salience"</monitor>
+    <monitor x="30" precision="3" y="485" height="60" fontSize="11" display="Control" width="105" sizeVersion="0">persistence "control"</monitor>
+    <note x="120" y="560" backgroundDark="0" fontSize="12" width="230" markdown="false" height="30" textColorDark="-1" textColorLight="-16777216" backgroundLight="0">Persistence Index (post − baseline)</note>
+    <monitor x="30" precision="3" y="595" height="60" fontSize="11" display="Control" width="105" sizeVersion="0">persistence-index "control"</monitor>
+    <monitor x="162" precision="3" y="595" height="60" fontSize="11" display="Low Salience" width="100" sizeVersion="0">persistence-index "low-salience"</monitor>
+    <monitor x="290" precision="3" y="595" height="60" fontSize="11" display="High Salience" width="100" sizeVersion="0">persistence-index "high-salience"</monitor>
+    <monitor x="30" precision="3" y="350" height="60" fontSize="11" width="205">high-reward-crowding-out-effect</monitor>
+    <monitor x="245" precision="3" y="350" height="60" fontSize="11" width="200">low-reward-persistence-effect</monitor>
+    <plot x="985" autoPlotX="true" yMax="0.5" autoPlotY="false" y="630" xMin="0.0" height="195" legend="true" xMax="160.0" yMin="-0.5" width="390" display="Intrinsic Motivation Gap vs Control">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="Low salience - control" color="-11221820" legend="true">
+        <setup></setup>
+        <update>plotxy ticks (
+  mean [intrinsic-motivation] of shoppers with [treatment-group = "low-salience"]
+  - mean [intrinsic-motivation] of shoppers with [treatment-group = "control"]
+)</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="High salience - control" color="-2674135" legend="true">
+        <setup></setup>
+        <update>plotxy ticks (
+  mean [intrinsic-motivation] of shoppers with [treatment-group = "high-salience"]
+  - mean [intrinsic-motivation] of shoppers with [treatment-group = "control"]
+)</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="Zero reference" color="-7500403" legend="false">
+        <setup></setup>
+        <update>plotxy ticks 0</update>
+      </pen>
+    </plot>
+    <plot x="985" autoPlotX="true" yMax="1.0" autoPlotY="false" y="430" xMin="0.0" height="195" legend="true" xMax="160.0" yMin="0.0" width="390" display="Mean Habit Strength">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="Control" color="-15575016" legend="true">
+        <setup></setup>
+        <update>plotxy ticks mean [habit] of shoppers with [
+    treatment-group = "control"
+]</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="Low salience" color="-11221820" legend="true">
+        <setup></setup>
+        <update>plotxy ticks mean [habit] of shoppers with [
+    treatment-group = "low-salience"
+]</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="High salience" color="-2674135" legend="true">
+        <setup></setup>
+        <update>plotxy ticks mean [habit] of shoppers with [
+    treatment-group = "high-salience"
+]</update>
+      </pen>
+    </plot>
+    <plot x="985" autoPlotX="true" yMax="1.0" autoPlotY="false" y="240" xMin="0.0" height="185" legend="true" xMax="160.0" yMin="0.0" width="390" display="Mean Intrinsic Motivation">
+      <setup></setup>
+      <update></update>
+      <pen interval="1.0" mode="0" display="Control" color="-15575016" legend="true">
+        <setup></setup>
+        <update>plotxy ticks mean [intrinsic-motivation] of shoppers with [
+    treatment-group = "control"
+]</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="Low salience" color="-11221820" legend="true">
+        <setup></setup>
+        <update>plotxy ticks mean [intrinsic-motivation] of shoppers with [
+    treatment-group = "low-salience"
+]</update>
+      </pen>
+      <pen interval="1.0" mode="0" display="High salience" color="-2674135" legend="true">
+        <setup></setup>
+        <update>plotxy ticks mean [intrinsic-motivation] of shoppers with [
+    treatment-group = "high-salience"
+]</update>
+      </pen>
+    </plot>
+    <plot x="985" autoPlotX="true" yMax="1.0" autoPlotY="true" y="10" xMin="0.0" height="220" legend="true" xMax="0.0" yMin="0.0" width="390" display="Target choice rate">
       <setup></setup>
       <update></update>
       <pen interval="1.0" mode="0" display="Control" color="-15575016" legend="true">
@@ -952,73 +1039,7 @@ end
 ]</update>
       </pen>
     </plot>
-    <plot x="1010" autoPlotX="true" yMax="1.0" autoPlotY="false" y="235" xMin="0.0" height="185" legend="true" xMax="160.0" yMin="0.0" width="390" display="Mean Intrinsic Motivation">
-      <setup></setup>
-      <update></update>
-      <pen interval="1.0" mode="0" display="Control" color="-15575016" legend="true">
-        <setup></setup>
-        <update>plotxy ticks mean [intrinsic-motivation] of shoppers with [
-    treatment-group = "control"
-]</update>
-      </pen>
-      <pen interval="1.0" mode="0" display="Low salience" color="-11221820" legend="true">
-        <setup></setup>
-        <update>plotxy ticks mean [intrinsic-motivation] of shoppers with [
-    treatment-group = "low-salience"
-]</update>
-      </pen>
-      <pen interval="1.0" mode="0" display="High salience" color="-2674135" legend="true">
-        <setup></setup>
-        <update>plotxy ticks mean [intrinsic-motivation] of shoppers with [
-    treatment-group = "high-salience"
-]</update>
-      </pen>
-    </plot>
-    <plot x="1010" autoPlotX="true" yMax="1.0" autoPlotY="false" y="425" xMin="0.0" height="195" legend="true" xMax="160.0" yMin="0.0" width="390" display="Mean Habit Strength">
-      <setup></setup>
-      <update></update>
-      <pen interval="1.0" mode="0" display="Control" color="-15575016" legend="true">
-        <setup></setup>
-        <update>plotxy ticks mean [habit] of shoppers with [
-    treatment-group = "control"
-]</update>
-      </pen>
-      <pen interval="1.0" mode="0" display="Low salience" color="-11221820" legend="true">
-        <setup></setup>
-        <update>plotxy ticks mean [habit] of shoppers with [
-    treatment-group = "low-salience"
-]</update>
-      </pen>
-      <pen interval="1.0" mode="0" display="High salience" color="-2674135" legend="true">
-        <setup></setup>
-        <update>plotxy ticks mean [habit] of shoppers with [
-    treatment-group = "high-salience"
-]</update>
-      </pen>
-    </plot>
-    <plot x="1010" autoPlotX="true" yMax="0.5" autoPlotY="false" y="625" xMin="0.0" height="195" legend="true" xMax="160.0" yMin="-0.5" width="390" display="Intrinsic Motivation Gap vs Control">
-      <setup></setup>
-      <update></update>
-      <pen interval="1.0" mode="0" display="Low salience - control" color="-11221820" legend="true">
-        <setup></setup>
-        <update>plotxy ticks (
-  mean [intrinsic-motivation] of shoppers with [treatment-group = "low-salience"]
-  - mean [intrinsic-motivation] of shoppers with [treatment-group = "control"]
-)</update>
-      </pen>
-      <pen interval="1.0" mode="0" display="High salience - control" color="-2674135" legend="true">
-        <setup></setup>
-        <update>plotxy ticks (
-  mean [intrinsic-motivation] of shoppers with [treatment-group = "high-salience"]
-  - mean [intrinsic-motivation] of shoppers with [treatment-group = "control"]
-)</update>
-      </pen>
-      <pen interval="1.0" mode="0" display="Zero reference" color="-7500403" legend="false">
-        <setup></setup>
-        <update>plotxy ticks 0</update>
-      </pen>
-    </plot>
-    <plot x="1415" autoPlotX="true" yMax="1.0" autoPlotY="false" y="5" xMin="0.0" height="395" legend="true" xMax="160.0" yMin="0.0" width="390" display="Persistence after reward withdrawal">
+    <plot x="1385" autoPlotX="true" yMax="1.0" autoPlotY="false" y="10" xMin="0.0" height="270" legend="true" xMax="160.0" yMin="0.0" width="390" display="Persistence after reward withdrawal">
       <setup></setup>
       <update></update>
       <pen interval="1.0" mode="0" display="Control" color="-15575016" legend="true">
@@ -1034,7 +1055,7 @@ end
         <update><![CDATA[if final-withdrawal-ticks-completed > 0 [ plotxy ticks persistence "high-salience" ]]]></update>
       </pen>
     </plot>
-    <plot x="1415" autoPlotX="true" yMax="0.5" autoPlotY="false" y="425" xMin="0.0" height="395" legend="true" xMax="160.0" yMin="-0.5" width="390" display="Persistence Index">
+    <plot x="1385" autoPlotX="true" yMax="0.5" autoPlotY="false" y="290" xMin="0.0" height="395" legend="true" xMax="160.0" yMin="-0.5" width="390" display="Persistence Index">
       <setup></setup>
       <update></update>
       <pen interval="1.0" mode="0" display="Control" color="-15575016" legend="true">
@@ -1054,27 +1075,6 @@ end
         <update><![CDATA[if final-withdrawal-ticks-completed > 0 [ plotxy ticks 0 ]]]></update>
       </pen>
     </plot>
-    <slider x="245" step="100" y="35" max="3000" display="number-of-shoppers" height="33" min="300" direction="Horizontal" default="1000.0" variable="number-of-shoppers" width="175" sizeVersion="0"></slider>
-    <slider x="30" step="1" y="135" max="6" display="reward-cycles" height="33" min="0" direction="Horizontal" default="1.0" variable="reward-cycles" width="125" sizeVersion="0"></slider>
-    <note x="155" y="95" backgroundDark="0" fontSize="12" width="150" markdown="false" height="25" textColorDark="-1" textColorLight="-16777216" backgroundLight="0">Loyalty program</note>
-    <button x="30" y="30" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55">setup</button>
-    <button x="100" y="30" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="55">go</button>
-    <slider x="30" step="5" y="180" max="200" display="reward-duration" height="33" min="10" direction="Horizontal" default="60.0" variable="reward-duration" width="140" sizeVersion="0"></slider>
-    <slider x="30" step="0.05" y="230" max="1" display="low-reward-salience" height="33" min="0" direction="Horizontal" default="0.15" variable="low-reward-salience" width="175" sizeVersion="0"></slider>
-    <slider x="215" step="5" y="175" max="200" display="withdrawal-duration" height="33" min="10" direction="Horizontal" default="60.0" variable="withdrawal-duration" width="160" sizeVersion="0"></slider>
-    <slider x="215" step="0.05" y="230" max="1" display="high-reward-salience" height="33" min="0" direction="Horizontal" default="0.9" variable="high-reward-salience" width="175" sizeVersion="0"></slider>
-    <monitor x="30" precision="17" y="285" height="60" fontSize="11" width="100">current-phase</monitor>
-    <monitor x="290" precision="3" y="625" height="60" fontSize="11" display="High Salience" width="100" sizeVersion="0">persistence-index "high-salience"</monitor>
-    <monitor x="162" precision="3" y="625" height="60" fontSize="11" display="Low Salience" width="100" sizeVersion="0">persistence-index "low-salience"</monitor>
-    <monitor x="30" precision="3" y="625" height="60" fontSize="11" display="Control" width="105" sizeVersion="0">persistence-index "control"</monitor>
-    <note x="120" y="585" backgroundDark="0" fontSize="12" width="230" markdown="false" height="30" textColorDark="-1" textColorLight="-16777216" backgroundLight="0">Persistence Index (post − baseline)</note>
-    <monitor x="30" precision="3" y="505" height="60" fontSize="11" display="Control" width="105" sizeVersion="0">persistence "control"</monitor>
-    <monitor x="162" precision="3" y="505" height="60" fontSize="11" display="Low Salience" width="100" sizeVersion="0">persistence "low-salience"</monitor>
-    <monitor x="290" precision="3" y="505" height="60" fontSize="11" display="High Salience" width="100" sizeVersion="0">persistence "high-salience"</monitor>
-    <note x="155" y="465" backgroundDark="0" fontSize="12" width="220" markdown="false" height="30" textColorDark="-1" textColorLight="-16777216" backgroundLight="0">Persistence (final withdrawal)</note>
-    <monitor x="245" precision="3" y="370" height="60" fontSize="11" width="205">low-reward-persistence-effect</monitor>
-    <monitor x="245" precision="0" y="290" height="60" fontSize="11" display="current-cycle" width="100" sizeVersion="0">current-cycle</monitor>
-    <monitor x="30" precision="3" y="370" height="60" fontSize="11" width="205">high-reward-crowding-out-effect</monitor>
   </widgets>
   <info>## Архітектура моделі
 
